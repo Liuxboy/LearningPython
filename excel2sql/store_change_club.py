@@ -11,18 +11,17 @@ import re
 import datetime
 import sys
 
-
-def open_excel(file='store_change_club.xlsx'):
+def open_excel(file_name):
     try:
-        data = xlrd.open_workbook(file)
+        data = xlrd.open_workbook(file_name)
         return data
     except Exception as e:
         print(str(e))
 
 
 # 根据索引获取Excel表格中的数据参数:file：Excel文件路径，col_name_index：表头列名所在行，by_index：表的索引
-def excel_table_byindex(file='store_change_club.xlsx', col_name_index=0, by_index=0):
-    data = open_excel(file)
+def excel_table_byindex(file_name, col_name_index=0, by_index=0):
+    data = open_excel(file_name)
     table = data.sheets()[by_index]
     rows = table.nrows  # 行数
     col_names = table.row_values(col_name_index)  # 表头
@@ -45,8 +44,8 @@ def excel_table_byindex(file='store_change_club.xlsx', col_name_index=0, by_inde
 
 
 def write_sql(sql_file, src_club_no, des_club_no, store_no):
-    desc = "-- 门店编码:%s, 转出商户编码:%s, 转入客户编码:%s\n" % (src_club_no, des_club_no, store_no)
-    update_dep_sql = "UPDATE p_dep SET PARENT_NUM = '%s', CREATE_USER = (SELECT pd1.CREATE_USER FROM (SELECT * FROM p_dep) AS pd1 WHERE `CODE` = '%s'), UPDATE_USER = (SELECT pd2.CREATE_USER FROM (SELECT * FROM p_dep) AS pd2 WHERE `CODE` = '%s') WHERE `CODE` = '%s';\n" % (
+    desc = "-- 门店编码:%s, 转出商户编码:%s, 转入客户编码:%s\n" % (store_no, src_club_no, des_club_no)
+    update_dep_sql = "UPDATE p_dep SET PARENT_NUM = '%s', CREATE_USER = (SELECT pd1.CREATE_USER FROM (SELECT * FROM p_dep) AS pd1 WHERE pd1.`CODE` = '%s'), UPDATE_USER = (SELECT pd2.CREATE_USER FROM (SELECT * FROM p_dep) AS pd2 WHERE pd2.`CODE` = '%s') WHERE `CODE` = '%s';\n" % (
         des_club_no, des_club_no, des_club_no, store_no)
     update_role_sql = "UPDATE p_role SET COMPANY_NO = '%s' WHERE DEP_ID = '%s';\n" % (des_club_no, store_no)
     update_user_sql = "UPDATE p_user_role SET U_ID = (SELECT ID FROM p_user WHERE `NAME` = (SELECT CREATE_USER FROM p_dep WHERE `CODE` = '%s')) WHERE R_ID IN (SELECT ID FROM p_role WHERE dep_id = '%s');\n\n\n" % (
@@ -58,11 +57,11 @@ def write_sql(sql_file, src_club_no, des_club_no, store_no):
     sql_file.write(update_user_sql)
 
 
-def main(open_file):
-    tables = excel_table_byindex(open_file)
+def main(file_name):
+    tables = excel_table_byindex(file_name)
     sql_file = open("store_change_club_%s.sql" % (datetime.date.today()), "w")
     for row in tables:
-        write_sql(sql_file, row["src_club_no"], row["des_club_no"], row["store_no"])
+        write_sql(sql_file, re.sub('\s|\.[0-9]+', '', str(row["src_club_no"])), re.sub('\s|\.[0-9]+', '', str(row["des_club_no"])), re.sub('\s|\.[0-9]+', '', str(row["store_no"])))
     print("总共纪录数：", len(tables))
     sql_file.close()
 
