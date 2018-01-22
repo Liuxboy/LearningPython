@@ -11,6 +11,7 @@ import re
 import datetime
 import sys
 
+
 def open_excel(file_name):
     try:
         data = xlrd.open_workbook(file_name)
@@ -61,7 +62,8 @@ def main(file_name):
     tables = excel_table_byindex(file_name)
     sql_file = open("store_change_club_%s.sql" % (datetime.date.today()), "w")
     for row in tables:
-        write_sql(sql_file, re.sub('\s|\.[0-9]+', '', str(row["src_club_no"])), re.sub('\s|\.[0-9]+', '', str(row["des_club_no"])), re.sub('\s|\.[0-9]+', '', str(row["store_no"])))
+        write_sql(sql_file, re.sub('\s|\.[0-9]+', '', str(row["src_club_no"])),
+                  re.sub('\s|\.[0-9]+', '', str(row["des_club_no"])), re.sub('\s|\.[0-9]+', '', str(row["store_no"])))
     print("总共纪录数：", len(tables))
     sql_file.close()
 

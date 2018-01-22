@@ -18,11 +18,11 @@ print(a)
 a = 4  # change the value
 print("a = ", a)
 if a == 3:
-    print("a = 3 is", True)
+	print("a = 3 is", True)
 elif a > 3:
-    print("a > 3 is", True)
+	print("a > 3 is", True)
 else:
-    print("a < 3 is", True)
+	print("a < 3 is", True)
 
 # 循环语句
 # while condition：
@@ -31,24 +31,23 @@ else:
 #     do something
 a = 0
 while a < 5:
-    print("yes")
-    a += 1
+	print("yes")
+	a += 1
 else:
-    print('no')
-
+	print('no')
 
 # 循环语句
 # for i in range（1，10，2）：
 # do something
 for i in range(1, 10, 2):
-    print("i = ", i)
+	print("i = ", i)
 
 for i in [1, 10, 2]:
-    print("i = ", i)
+	print("i = ", i)
 
 keywordCount = 0
 for i in keyword.kwlist:
-    keywordCount += 1
+	keywordCount += 1
 print("Python has", keywordCount, "keywords")
 
 # A and B or C
@@ -67,6 +66,7 @@ import sys  # 导入sys模块
 from sys import argv  # 从sys模块中导入argv
 import calendar as c  # 将xxx模块导入并在此将它简单命名为p，此后直接可以使用p替代xxx模块原名
 
+
 # 函数
 # Python中定义函数时使用到def关键字，使用pass关键字指代不做任何操作：
 # def JustAFunction：
@@ -74,11 +74,12 @@ import calendar as c  # 将xxx模块导入并在此将它简单命名为p，此�
 
 
 def a_funcion():
-    pass
+	pass
+
 
 # 需要返回值时，用到关键字return，python允许多个返回值（接收返回值时用相应数量的变量接收!）
 # 神奇函数 lambda 定义单行最小函数
-g = lambda x : x * x    # 定义一个Lambda函数用来计算参数平方倍并返回!
+g = lambda x: x * x  # 定义一个Lambda函数用来计算参数平方倍并返回!
 print(g(4))
 
 # 异常 try except finally raise这几个关键字，其实这几个关键字对就应于Java语言中的try catch finally throw
@@ -99,6 +100,8 @@ print(g(4))
 # assert 关键字，跟其实语言的assert用法相差不大，都表示一个语句是否为True，真过，假抛AssertionError异常
 
 assert len(keyword.kwlist) is not None
+
+
 # assert len(keyword.kwlist) is None
 
 # yield 关键字
@@ -110,12 +113,14 @@ assert len(keyword.kwlist) is not None
 # 更多内容见：
 # http://www.ibm.com/developerworks/cn/opensource/os-cn-python-yield/
 # https://pyzh.readthedocs.io/en/latest/the-python-yield-keyword-explained.html
-def fab(max):
-    n, a, b = 0, 0, 1
-    while n < max:
-        yield b #print b
-        a, b = b, a + b
-        n += 1
+def fab(max_args):
+	n, a, b = 0, 0, 1
+	while n < max_args:
+		yield b  # print b
+		a, b = b, a + b
+		n += 1
+
 
 for n in fab(5):
-    print(n)
+	print(n)
+
