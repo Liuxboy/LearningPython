@@ -16,10 +16,9 @@ print(f(1.00001))
 print(f(1.00002))
 print(f(1.00003))
 
-
 a = 1.0000001
 re = 1.000000
-while (abs(re) > 0.00001):
+while abs(re) > 0.00001:
 	a += 0.0000001
 	re = f(a)
 	print(a)
