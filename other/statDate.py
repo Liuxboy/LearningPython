@@ -33,7 +33,7 @@ windowDateMaxLength = 0
 for m in range(len(reMonth)):
 	length = 0
 	n = m
-	while reMonth[n] != 0:
+	while n < len(reMonth) and reMonth[n] != 0:
 		n += 1
 		length += 1
 	# 如果发现length比前面的最大窗口长度还大，则替换之
