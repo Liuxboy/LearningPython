@@ -8,8 +8,10 @@
 
 
 def f(q):
-	r = q ** 19 + q ** 18 + q ** 17 + q ** 16 + q ** 15 + q ** 14 + q ** 13 + q ** 12 + q ** 11 + q ** 10 - 20
-	return r
+	sumamount = 0
+	for i in (range(10, 20)):
+		sumamount += q ** i
+	return sumamount - 20
 
 
 print(f(1.00001))
@@ -24,5 +26,5 @@ while abs(re) > 0.00001:
 	print(a)
 	print(re)
 
-print("最终结果：%f", a - 1)
+print("最终结果：%s" % (a - 1))
 print("逼近结果：", re)

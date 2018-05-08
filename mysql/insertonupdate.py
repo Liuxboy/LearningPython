@@ -39,7 +39,7 @@ def testinsertonupdate(num):
 if __name__ == '__main__':
 	print("开始时间：", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
 	sample = [1, 125]
-	#sample = [1, 2, 5, 10, 20, 50, 100, 125, 200]
+	# sample = [1, 2, 5, 10, 20, 50, 100, 125, 200]
 	x = [testinsertonupdate(x) for x in sample]
 	print(x)
 	print("结束时间：", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))

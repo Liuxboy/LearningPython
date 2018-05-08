@@ -86,6 +86,48 @@ def quadratic(a, b, c):
 			return (-b + math.sqrt(delta)) / (2 * a), (-b - math.sqrt(delta)) / (2 * a)
 
 
+# 位置参数
+def power(x):
+	return x * x
+
+
+# 默认参数
+def power(x, n=2):
+	return x ** n
+
+
+def enroll(name, gender):
+	print('name:', name)
+	print('gender:', gender)
+
+
+def enroll(name, gender, age=6, city='Beijing'):
+	print('name:', name)
+	print('gender:', gender)
+	print('age:', age)
+	print('city:', city)
+
+
+def add_end(l=[]):
+	l.append('END')
+	return l
+
+
+def add_end(lt=None):
+	if lt is None:
+		lt = []
+	lt.append('END')
+	return lt
+
+
+# 可变参数
+def calc(*numbers):
+	sumcount = 0
+	for m in numbers:
+		sumcount += m * m
+	return sumcount
+
+
 if __name__ == '__main__':
 	print("quadratic(2,3,1) = ", quadratic(2, 3, 1))
 	print("quadratic(1,3,-4) = ", quadratic(1, 3, -4))
@@ -96,3 +138,23 @@ if __name__ == '__main__':
 		print('测试失败')
 	else:
 		print('测试成功')
+
+	print(power(5))
+	print(power(6))
+	print(power(5, 2))
+	print(power(6, 2))
+	print(power(6, 3))
+
+	enroll("Jack", "男")
+	enroll("Michel", "男")
+	enroll('Bob', 'M', 7)
+	enroll('Adam', 'M', city='Tianjin')
+	print(add_end(['a', 'b', 'c']))
+	print(add_end())
+	print(add_end())
+
+	print(calc(1, 2, 3, 4))
+	nums = [1, 2, 3]
+	print(calc(nums[0], nums[1], nums[2]))
+	print(calc(*nums))
+
