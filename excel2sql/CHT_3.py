@@ -12,15 +12,18 @@ import sys
 import time
 
 
+csv.field_size_limit(500 * 1024 * 1024)
+
+
 def handle_csv(csv_file_name, csv_re_file_name):
 	reader = csv.reader(open(csv_file_name, 'r'))
 	head_row = next(reader)  # 读取一行，下面的reader中已经没有该行了
 	for row in reader:  # 按行处理csv文件
 		# 行号从2开始
-		col_0 = row[0]                    # 第一列
+		col_0 = row[0]  # 第一列
 		col_1 = row[1]  # 第二列
 		col_2 = row[2]  # 第三列
-		col_3 = row[3]                    # 第四列
+		col_3 = row[3]  # 第四列
 		title_header = [head_row[1], head_row[2]]
 		# 只处理第二列队LST_Day_1km 与 第三列 b1
 		lst_data = col_1.lstrip("[").rstrip("]").split(",")  # 去掉[]，并以逗号分隔数据成数组
@@ -63,9 +66,10 @@ def iterate_path(filepath):
 
 
 def main(path):
-	# path = "D:\Document\Google Earth\CHX"  # 文件目录
 	iterate_path(path)
 
 
 if __name__ == "__main__":
+	# path = "D:\Document\Google Earth\3"  # 文件目录
+	# main(path)
 	main(sys.argv[1])
