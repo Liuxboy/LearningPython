@@ -49,6 +49,7 @@ def iterate_path(filepath):
 			iterate_path(fi_d)
 		else:  # 如果是文件，则处理该文件
 			csv_file_name = os.path.join(filepath, fi_d)  # 处理前全路径文件名
+			print("处理文件", csv_file_name)
 			csv_re_file_name = filepath + "\\" + fi.split(".")[0] + "_re.csv"  # 处理后全路径文件名
 			csv_file = open(csv_re_file_name, 'w', encoding='utf8', newline='')  # 打开一个文件
 			csv_writer = csv.writer(csv_file)  # 创建一个writer
