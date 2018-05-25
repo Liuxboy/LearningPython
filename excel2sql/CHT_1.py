@@ -57,11 +57,6 @@ def iterate_path(filepath):
 			csv_file_name = os.path.join(filepath, fi_d)  # 处理前全路径文件名
 			print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), "Handle the file: ", csv_file_name)
 			csv_re_file_name = filepath + "\\" + fi.split(".")[0] + "_re.csv"  # 处理后全路径文件名
-			csv_file = open(csv_re_file_name, 'w', encoding='utf8', newline='')  # 打开一个文件
-			csv_writer = csv.writer(csv_file)  # 创建一个writer
-			title_list = ['LST_Day_1km', 'b1']  # 创建结果文件的表头
-			csv_writer.writerow(title_list)  # 将该row写入csv文件，row中每个内容占一个单元格
-			csv_file.close()
 			handle_csv(csv_file_name, csv_re_file_name)
 
 
