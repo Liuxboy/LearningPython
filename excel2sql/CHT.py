@@ -8,6 +8,8 @@
 
 import csv
 import os
+import sys
+import time
 
 
 def handle_csv(csv_file_name, csv_re_file_name):
@@ -21,12 +23,13 @@ def handle_csv(csv_file_name, csv_re_file_name):
 		col_3 = row[3]                    # 第四列
 		title_header = [head_row[1], head_row[2]]
 		# 只处理第二列队LST_Day_1km 与 第三列 b1
-		lst_data = col_1.split(",")  # 以逗号分隔数据成数组
-		b1_data = col_2.split(",")  # 以逗号分隔数据成数组
+		lst_data = col_1.lstrip("[").rstrip("]").split(",")  # 去掉[]，并以逗号分隔数据成数组
+		b1_data = col_2.lstrip("[").rstrip("]").split(",")  # 去掉[]，并以逗号分隔数据成数组
 		lst_data_len = len(lst_data)
 		b1_data_len = len(b1_data)
 		csv_re_file = open(csv_re_file_name, 'w', encoding='utf8', newline='')  # 打开一个文件
 		csv_writer = csv.writer(csv_re_file)  # 创建一个writer
+		csv_writer.writerow(title_header)
 		for i in range(max(lst_data_len, b1_data_len)):
 			lst_cell = ""  # 如果lst数据小于b1数据长度，则剩下的lst置为""
 			b1_cell = ""  # 如果b1数据小于lst数据长度，则剩下的b1置为""
@@ -49,7 +52,7 @@ def iterate_path(filepath):
 			iterate_path(fi_d)
 		else:  # 如果是文件，则处理该文件
 			csv_file_name = os.path.join(filepath, fi_d)  # 处理前全路径文件名
-			print("处理文件", csv_file_name)
+			print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), "Handle the file: ", csv_file_name)
 			csv_re_file_name = filepath + "\\" + fi.split(".")[0] + "_re.csv"  # 处理后全路径文件名
 			csv_file = open(csv_re_file_name, 'w', encoding='utf8', newline='')  # 打开一个文件
 			csv_writer = csv.writer(csv_file)  # 创建一个writer
@@ -59,10 +62,10 @@ def iterate_path(filepath):
 			handle_csv(csv_file_name, csv_re_file_name)
 
 
-def main():
-	path = "D:\Document\Google Earth\CHX"  # 文件目录
+def main(path):
+	# path = "D:\Document\Google Earth\CHX"  # 文件目录
 	iterate_path(path)
 
 
 if __name__ == "__main__":
-	main()
+	main(sys.argv[1])
