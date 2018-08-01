@@ -60,7 +60,7 @@ def write_sql(sql_file, src_club_no, des_club_no, store_no):
 
 def main(file_name):
     tables = excel_table_byindex(file_name)
-    sql_file = open("store_change_club_%s.sql" % (datetime.date.today()), "w")
+    sql_file = open("store_change_club_%s.sql" % (datetime.date.today()), "w", encoding="utf-8")
     for row in tables:
         write_sql(sql_file, re.sub('\s|\.[0-9]+', '', str(row["src_club_no"])),
                   re.sub('\s|\.[0-9]+', '', str(row["des_club_no"])), re.sub('\s|\.[0-9]+', '', str(row["store_no"])))
