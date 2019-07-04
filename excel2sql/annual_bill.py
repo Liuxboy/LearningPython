@@ -34,9 +34,9 @@ def excel_table_byindex(file_name, col_name_index=0, by_index=0):
 			# char_col = [0, 1, 3, 38, 40, 42, 43, 44, 46, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62]
 			for col in range(len(col_names)):
 				value = table.cell(row_num, col).value
-				#if col in char_col:
-				#	row_str += "'" + str(value) + "', "
-				#else:
+				# if col in char_col:
+				# 	row_str += "'" + str(value) + "', "
+				# else:
 				row_str += "`" + str(value) + "`, '|', "
 			data_list.append(row_str)
 	return data_list
