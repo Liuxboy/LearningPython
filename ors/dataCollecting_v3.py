@@ -163,7 +163,7 @@ if __name__ == "__main__":
 	if not os.path.exists(sys.argv[2]):
 		os.mkdir(sys.argv[2])
 	# 执行处理方法
-	# handle_isochrones(timeinterval, timerange, trafficmethod, coordset, requesturl, jsonpath)
+	handle_isochrones(timeinterval, timerange, trafficmethod, coordset, requesturl, jsonpath)
 
 	endTime = time.time()
-	print("Has cost time：%s mins", ((endTime - startTime) / 60))
+	print("Has cost time：%s mins" % ((endTime - startTime) / 60))
