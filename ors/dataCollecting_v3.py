@@ -130,7 +130,7 @@ def handle_isochrones(time_interval=3, time_range=None, traffic_method="foot-wal
 
 
 if __name__ == "__main__":
-	if len(sys.argv) == 3:
+	if len(sys.argv) == 5:
 		if not sys.argv[1]:
 			print("Please input the related path of coordinate csv file!")
 			exit(0)
@@ -139,15 +139,15 @@ if __name__ == "__main__":
 			exit(0)
 	else:
 		print("Please input the related path of coordinate csv file AND the related path of destination JSON directory")
-		print("Like：python dataCollecting_v3.py CityPointsCSV/Heidelberg_Points.csv Heidelberg_Points")
+		print("Like：python dataCollecting_v3.py CityPointsCSV/Heidelberg_Points.csv Heidelberg_Points time_period traffic-method")
 		exit(0)
 	startTime = time.time()
 	# 时间间隔
-	timeinterval = 3
+	timeinterval = 1
 	# 时间步长
-	timerange = [900, 1800, 3600]
+	timerange = [int(sys.argv[3])]
 	# 交通方式
-	trafficmethod = "foot-walking"
+	trafficmethod = sys.argv[4]
 	# 获取坐标
 	# csv_file = './CityPointsCSV/Heidelberg_Points.csv'
 	csv_file = sys.argv[1]
@@ -156,7 +156,7 @@ if __name__ == "__main__":
 		exit(0)
 	coordset = get_coords(csv_file)
 	# 自建openrouteservice服务地址
-	requesturl = "http://localhost:8080/ors/v2/isochrones/"
+	requesturl = "http://localhost:8081/ors/v2/isochrones/"
 	# 结果json路径
 	# jsonpath = "./Heidelberg_Points"
 	jsonpath = sys.argv[2] + "/pointID"
