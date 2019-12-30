@@ -46,7 +46,7 @@ def excel_table_byindex(file_name, col_name_index=0, by_index=0):
 
 def write_sql(sql_file, src_club_no, des_club_no, store_no):
     desc = "-- 门店编码:%s, 转出商户编码:%s, 转入客户编码:%s\n" % (store_no, src_club_no, des_club_no)
-    update_dep_sql = "UPDATE p_dep SET PARENT_NUM = '%s', CREATE_USER = (SELECT pd1.CREATE_USER FROM (SELECT * FROM p_dep) AS pd1 WHERE pd1.`CODE` = '%s'), UPDATE_USER = (SELECT pd2.CREATE_USER FROM (SELECT * FROM p_dep) AS pd2 WHERE pd2.`CODE` = '%s') WHERE `CODE` = '%s';\n" % (
+    update_dep_sql = "UPDATE p_dep SET PARENT_NUM = '%s', CREATE_USER = (SELECT pd1.CREATE_USER FROM (SELECT * FROM p_dep) AS pd1 WHERE pd1.CODE = '%s'), UPDATE_USER = (SELECT pd2.CREATE_USER FROM (SELECT * FROM p_dep) AS pd2 WHERE pd2.CODE` = '%s') WHERE `CODE` = '%s';\n" % (
         des_club_no, des_club_no, des_club_no, store_no)
     update_role_sql = "UPDATE p_role SET COMPANY_NO = '%s' WHERE DEP_ID = '%s';\n" % (des_club_no, store_no)
     update_user_sql = "UPDATE p_user_role SET U_ID = (SELECT ID FROM p_user WHERE `NAME` = (SELECT CREATE_USER FROM p_dep WHERE `CODE` = '%s')) WHERE R_ID IN (SELECT ID FROM p_role WHERE dep_id = '%s');\n\n\n" % (

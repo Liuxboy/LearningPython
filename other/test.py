@@ -42,3 +42,7 @@ if not n:
 	print("n is not None")
 else:
 	print("n is None")
+
+
+lt = [1,2,3,4,5,6]
+print(lt[2:5])
