@@ -101,6 +101,6 @@ def delete():
 
 if __name__ == '__main__':
 	# insert()
-	# query()
+	query()
 	# update()
-	delete()
+	# delete()
