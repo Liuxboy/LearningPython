@@ -4,7 +4,8 @@
 # Author: liuchundong <br>
 # Date: 2020-08-19 <br>
 # Time: 10:17 <br>
-# Desc: 信-Canal客户端
+# Desc: Canal客户端
+# Link: https://github.com/haozi3156666/canal-python
 
 import time
 
