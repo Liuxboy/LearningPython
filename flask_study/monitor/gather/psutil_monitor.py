@@ -8,9 +8,10 @@
 # 并同时支持python2和python3
 import json
 import sqlite3
-import psutil
 import time
-from multiprocessing.dummy import Pool as TheadPool
+from threading import Timer
+
+import psutil
 
 # 查询逻辑cpu数量
 logical_cpu = psutil.cpu_count()
@@ -27,15 +28,17 @@ def handle_cpu():
 
 def handle_mem():
     mem = psutil.virtual_memory()
+    mem_percent = mem.percent
     top_mem = None
-    if mem.percent > 90.0:
+    if mem_percent > 90.0:
         top_mem = get_top_process('memory_percent')
-    return mem.total, mem.available, top_mem
+    return mem_percent, top_mem
 
 
 def handle_swap():
     swap = psutil.swap_memory()
-    return swap.total, swap.free
+    swap_percent = swap.percent
+    return swap_percent
 
 
 def handle_load():
@@ -106,30 +109,6 @@ def get_top_process(top_percent):
     return json.dumps(process_json_list, ensure_ascii=False)
 
 
-"""
-CREATE TABLE monitor(
-    create_time TIMESTAMP NOT NULL DEFAULT (strftime('%s','now')) PRIMARY KEY,
-    cpu_pect DECIMAL(5,2),
-    mem_used INT,
-    mem_free INT,
-    swap_used INT,
-    swap_free INT,
-    net_recv INT,
-    net_sent INT,
-    load_1m DECIMAL(5,2),
-    load_5m DECIMAL(5,2),
-    load_15m DECIMAL(5,2),
-    disk_read_count INT,
-    disk_writ_count INT,
-    disk_read_byte INT,
-    disk_writ_byte INT,
-    top_cpu TEXT,
-    top_mem TEXT,
-    top_disk TEXT
-);
-"""
-
-
 def insert_sqlite(data_list):
     """
     往sqlite里面插入统计信息
@@ -138,16 +117,13 @@ def insert_sqlite(data_list):
     """
     if data_list:
         insert_sql = """
-                INSERT INTO monitor(
-                    create_time,
-                    cpu_pect,
-                    mem_used, mem_free,
-                    swap_used, swap_free,
-                    net_recv, net_sent,
+                INSERT INTO psutil_monitor(
+                    create_time, cpu_pect, mem_pect, swp_pect,
                     load_1m, load_5m, load_15m,
+                    net_recv, net_sent,
                     disk_read_count, disk_writ_count, disk_read_byte, disk_writ_byte,
                     top_cpu, top_mem, top_disk
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """
         if data_list:
             conn = sqlite3.connect(sqlite_db)
@@ -158,97 +134,55 @@ def insert_sqlite(data_list):
             conn.close()
 
 
-def schedule():
-    pool = TheadPool(processes=3)
-    interval_func_list = [handle_cpu, handle_mem, handle_swap]
-    for i in range(60):
-        result = []
-        for func in interval_func_list:
-           res = pool.apply_async(func, ())
-        result.append(res.get())
-        print(result)
-    pool.close()
-    pool.join()
-
-
-def main():
-    timestamp = time.time()
-    hhmm = time.strftime("%H:%M", time.localtime(timestamp))
-    cpu_pect = 0.0
-    mem_used = 0
-    mem_free = 0
-    swap_used = 0
-    swap_free = 0
-    net_recv = 0
-    net_sent = 0
-    load_1m = 0.0
-    load_5m = 0.0
-    load_15m = 0.0
-    disk_read_count = 0
-    disk_writ_count = 0
-    disk_read_byte = 0
-    disk_writ_byte = 0
-    top_cpu = []
-    top_mem = []
-    top_disk = None
-
-    # 开始时
-    disk_io = handle_disk_io()
-    disk_read_count = disk_io[0]
-    disk_writ_count = disk_io[1]
-    disk_read_byte = disk_io[2]
-    disk_writ_byte = disk_io[3]
-    net_io = handle_net_io()
-    net_recv = net_io[0]
-    net_sent = net_io[1]
-    # 中间间隔1s统计一次系统cpu、mem、swap
-    loop_list = range(60)
-    for i in loop_list:
-        cpu = handle_cpu()
-        cpu_pect += cpu[0]
-        cpu[1] and top_cpu.append(cpu[1])
-
-        mem = handle_mem()
-        mem_used += (mem[0] - mem[1])
-        mem_free += mem[1]
-        mem[2] and top_mem.append(mem[2])
-
-        swap = handle_swap()
-        swap_used += (swap[0] - swap[1])
-        swap_free += swap[1]
-        time.sleep(1)
-    # 结束时
-    disk_io = handle_disk_io()
-    disk_read_count = disk_io[0] - disk_read_count
-    disk_writ_count = disk_io[1] - disk_writ_count
-    disk_read_byte = disk_io[2] - disk_read_byte
-    disk_writ_byte = disk_io[3] - disk_writ_byte
-    net_io = handle_net_io()
-    net_recv = net_io[0] - net_recv
-    net_sent = net_io[1] - net_sent
-    # cpu负载亦从最后一次记录里面获取
-    load = handle_load()
-    load_1m = load[0]
-    load_5m = load[1]
-    load_15m = load[2]
-    # 每日9点检查一下磁盘空间
-    if hhmm == '09:00':
-        top_disk = handle_disk_usage()
-
-    data_list = [(int(timestamp), round(cpu_pect/60.0, 2), mem_used//60, mem_free//60, swap_used//60, swap_free//60, net_recv,
-                  net_sent, round(load_1m, 2), round(load_5m, 2), round(load_15m, 2), disk_read_count, disk_writ_count, disk_read_byte, 
-                  disk_writ_byte, _list2jsonstr(top_cpu), _list2jsonstr(top_mem), top_disk)]
-    insert_sqlite(data_list)
-
-
-def _list2jsonstr(lt):
+def __list2jsonstr(lt):
     if type(lt) == 'list' and lt:
         return json.dumps(lt)
     return None
 
 
+def main():
+    # 每个5秒执行一次，非阻塞
+    t = Timer(5, main)
+    t.start()
+    timestamp = time.time()
+    print(int(timestamp))
+    cpu = handle_cpu()
+    cpu_pect = cpu[0]
+    top_cpu = cpu[1]
+
+    mem = handle_mem()
+    mem_pect = mem[0]
+    top_mem = mem[1]
+
+    swp_pect = handle_swap()
+
+    load = handle_load()
+    load_1m = load[0]
+    load_5m = load[1]
+    load_15m = load[2]
+
+    disk_io = handle_disk_io()
+    disk_read_count = disk_io[0]
+    disk_writ_count = disk_io[1]
+    disk_read_byte = disk_io[2]
+    disk_writ_byte = disk_io[3]
+
+    net_io = handle_net_io()
+    net_recv = net_io[0]
+    net_sent = net_io[1]
+    # 每日9点检查一下磁盘空间
+    top_disk = None
+    hhmm = time.strftime("%H:%M", time.localtime(timestamp))
+    if hhmm == '09:00':
+        top_disk = handle_disk_usage()
+
+    data_list = [(int(timestamp), round(cpu_pect, 2), round(mem_pect, 2), round(swp_pect, 2),
+                  round(load_1m, 2), round(load_5m, 2), round(load_15m, 2),
+                  net_recv, net_sent,
+                  disk_read_count, disk_writ_count, disk_read_byte, disk_writ_byte, __list2jsonstr(top_cpu),
+                  __list2jsonstr(top_mem), top_disk)]
+    insert_sqlite(data_list)
+
+
 if __name__ == "__main__":
-    start_time = time.time()
     main()
-    end_time = time.time()
-    print(end_time - start_time)

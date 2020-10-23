@@ -17,7 +17,7 @@ get_processor = subprocess.Popen("cat /proc/cpuinfo| grep 'processor'| wc -l", s
 out = get_processor.stdout.readline()
 processors = out.strip() or 1
 ips = ['localhost']
-sqlite_db = '/home/project/monitor/sys_monitor.db'
+sqlite_db = '/home/monitor.db'
 
 
 def convert_byte(number):
@@ -257,7 +257,7 @@ def insert_sqlite(data_list):
     """
     if data_list:
         insert_sql = """
-                INSERT INTO sys_stat(
+                INSERT INTO dool_monitor(
                     stat_timestamp,
                     cpu_usr, cpu_sys, cpu_idl,
                     mem_used, mem_free, mem_buff, mem_cach,

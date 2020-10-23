@@ -38,10 +38,9 @@ def query_sqlite(sql, args=None):
 
 
 def cpu():
-    start_time = int(time.time()) - 10000000
     sql = """
-        SELECT strftime('%H:%M', create_time, 'unixepoch') AS ctime, ROUND(cpu_pect,2) 
-        FROM monitor
+        SELECT strftime('%H:%M', create_time, 'unixepoch', 'localtime') AS ctime, cpu_pect
+        FROM psutil_monitor
     """
     result = query_sqlite(sql, ())
     cpu_percent_dict = {}
@@ -50,40 +49,56 @@ def cpu():
             create_time = row[0]
             cpu_percent = row[1]
             cpu_percent_dict[create_time] = cpu_percent
-    max_key = max(cpu_percent_dict.keys(), key=(lambda x: x))
-    max_value = cpu_percent_dict[max_key]
-    return cpu_percent_dict, max_value
+    return cpu_percent_dict
 
 
 def cpu_line() -> Line:
     now = time.strftime('%Y{y}%m{m}%d{d}').format(y='年', m='月', d='日')
-    cpu_percent_dict = cpu()[0]
+    cpu_percent_dict = cpu()
     cpu_percent_line = (
         Line()
-        .add_xaxis(list(cpu_percent_dict.keys()))
-        .add_yaxis('', list(cpu_percent_dict.values()),
-                   areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
-                   label_opts=opts.LabelOpts(is_show=False),
-                   )
-        .set_global_opts(title_opts=opts.TitleOpts(title=now + "CPU负载", pos_left="center"),
-                         yaxis_opts=opts.AxisOpts(min_=0, max_=100, split_number=10, type_="value", name='%'))
+            .add_xaxis(list(cpu_percent_dict.keys()))
+            .add_yaxis('', list(cpu_percent_dict.values()),
+                       areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
+                       label_opts=opts.LabelOpts(is_show=False),
+                       )
+            .set_global_opts(title_opts=opts.TitleOpts(title=now + "CPU使用率", pos_left="center"),
+                             yaxis_opts=opts.AxisOpts(min_=0, max_=100, split_number=10, type_="value", name='%'))
     )
-    cpu_percent_max = cpu()[1]
-    return cpu_percent_line, cpu_percent_max
+    return cpu_percent_line
 
 
 def memory():
-    memory = psutil.virtual_memory()
-    swap = psutil.swap_memory()
-    return memory.total, memory.total - memory.free, memory.free, swap.total, swap.used, swap.free, memory.percent
+    sql = """
+        SELECT strftime('%H:%M', create_time, 'unixepoch', 'localtime') AS ctime, mem_pect, 8.00, swp_pect, 16.00
+        FROM psutil_monitor
+    """
+    result = query_sqlite(sql, ())
+    mem_percent_dict = {}
+    if result:
+        for row in result:
+            create_time = row[0]
+            mem_pect = row[1]
+            mem_total = row[2]
+            mem_aviable = round(mem_total * mem_pect, 2)
+            mem_free = mem_total - mem_aviable
+            swp_pect = row[3]
+            swp_total = row[4]
+            swp_aviable = round(swp_total * swp_pect, 2)
+            swp_fee = swp_total - swp_aviable
+            mem_percent_dict[create_time] = (mem_pect, swp_pect)
+    return mem_percent_dict
+    # memory = psutil.virtual_memory()
+    # swap = psutil.swap_memory()
+    # return memory.total, memory.total - memory.free, memory.free, swap.total, swap.used, swap.free, memory.percent
 
 
 def memory_liquid() -> Gauge:
     mtotal, mused, mfree, stotal, sused, sfree, mpercent = memory()
     c = (
         Gauge()
-        .add("", [("", mpercent)])
-        .set_global_opts(title_opts=opts.TitleOpts(title="内存负载", pos_left="center"))
+            .add("", [("", mpercent)])
+            .set_global_opts(title_opts=opts.TitleOpts(title="内存负载", pos_left="center"))
     )
     return mtotal, mused, mfree, stotal, sused, sfree, c
 
@@ -124,14 +139,14 @@ def net_io_line() -> Line:
 
     c = (
         Line()
-        .add_xaxis(net_io_dict['net_io_time'])
-        .add_yaxis("发送字节数", net_io_dict['net_io_sent'], is_smooth=True)
-        .add_yaxis("接收字节数", net_io_dict['net_io_recv'], is_smooth=True)
-        .set_series_opts(
+            .add_xaxis(net_io_dict['net_io_time'])
+            .add_yaxis("发送字节数", net_io_dict['net_io_sent'], is_smooth=True)
+            .add_yaxis("接收字节数", net_io_dict['net_io_recv'], is_smooth=True)
+            .set_series_opts(
             areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
             label_opts=opts.LabelOpts(is_show=False),
         )
-        .set_global_opts(
+            .set_global_opts(
             title_opts=opts.TitleOpts(title="网卡IO", pos_left="center"),
             xaxis_opts=opts.AxisOpts(
                 axistick_opts=opts.AxisTickOpts(is_align_with_label=True),
@@ -222,15 +237,15 @@ def disk_line() -> Line:
 
     c = (
         Line(init_opts=opts.InitOpts(width="1680px", height="800px"))
-        .add_xaxis(xaxis_data=disk_dict['disk_time'])
-        .add_yaxis(
+            .add_xaxis(xaxis_data=disk_dict['disk_time'])
+            .add_yaxis(
             series_name="写入数据",
             y_axis=disk_dict['write_bytes'],
             areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
             linestyle_opts=opts.LineStyleOpts(),
             label_opts=opts.LabelOpts(is_show=False),
         )
-        .add_yaxis(
+            .add_yaxis(
             series_name="读取数据",
             y_axis=disk_dict['read_bytes'],
             yaxis_index=1,
@@ -238,7 +253,7 @@ def disk_line() -> Line:
             linestyle_opts=opts.LineStyleOpts(),
             label_opts=opts.LabelOpts(is_show=False),
         )
-        .extend_axis(
+            .extend_axis(
             yaxis=opts.AxisOpts(
                 name_location="start",
                 type_="value",
@@ -248,7 +263,7 @@ def disk_line() -> Line:
                 name='KB/2S'
             )
         )
-        .set_global_opts(
+            .set_global_opts(
             title_opts=opts.TitleOpts(
                 title="磁盘IO",
                 pos_left="center",
@@ -260,7 +275,7 @@ def disk_line() -> Line:
             xaxis_opts=opts.AxisOpts(type_="category", boundary_gap=False),
             yaxis_opts=opts.AxisOpts(type_="value", name='KB/2S'),
         )
-        .set_series_opts(
+            .set_series_opts(
             axisline_opts=opts.AxisLineOpts(),
         )
     )
@@ -276,10 +291,7 @@ def index():
 @app.route("/cpu")
 def get_cpu_chart():
     cpu = cpu_line()
-    cpu_percent_line = cpu[0]
-    cpu_percent_max = cpu[1]
-    return jsonify({'cpu_percent_line': cpu_percent_line.dump_options_with_quotes(),
-            'cpu_percent_max': cpu_percent_max})
+    return jsonify({'cpu_percent_line': cpu.dump_options_with_quotes()})
 
 
 @app.route("/memory")
@@ -317,3 +329,5 @@ def get_disk_chart():
 if __name__ == "__main__":
     # cpu()
     app.run(host='127.0.0.1', port=5000)
+    app.jinja_env.auto_reload = True
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
