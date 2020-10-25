@@ -37,12 +37,22 @@ def query_sqlite(sql, args=None):
         conn.close()
 
 
-def cpu():
+def cpu(start_time=None, end_time=None):
+    if not start_time:
+        start_time = 0
+    if not end_time:
+        end_time = int(time.time())
+
     sql = """
-        SELECT strftime('%H:%M', create_time, 'unixepoch', 'localtime') AS ctime, cpu_pect
-        FROM psutil_monitor
-    """
-    result = query_sqlite(sql, ())
+            SELECT tmp.ctime, round(SUM(tmp.cpu_pect) / COUNT(1), 2)
+            FROM (
+                SELECT strftime('%H:%M', create_time, 'unixepoch', 'localtime') AS ctime, cpu_pect
+                FROM psutil_monitor
+                WHERE create_time >= ? AND create_time <= ?
+            ) AS tmp
+            GROUP BY tmp.ctime;
+        """
+    result = query_sqlite(sql, (start_time, end_time))
     cpu_percent_dict = {}
     if result:
         for row in result:
@@ -61,101 +71,356 @@ def cpu_line() -> Line:
             .add_yaxis('', list(cpu_percent_dict.values()),
                        areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
                        label_opts=opts.LabelOpts(is_show=False),
+                       is_smooth=True
                        )
-            .set_global_opts(title_opts=opts.TitleOpts(title=now + "CPU使用率", pos_left="center"),
-                             yaxis_opts=opts.AxisOpts(min_=0, max_=100, split_number=10, type_="value", name='%'))
+            .set_global_opts(
+            tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type="cross"),
+            title_opts=opts.TitleOpts(title=now + "CPU使用率", pos_left="center"),
+            yaxis_opts=opts.AxisOpts(min_=0, max_=100, split_number=10, type_="value", name='%')
+        )
     )
     return cpu_percent_line
 
 
-def memory():
+def memory(start_time=None, end_time=None):
+    if not start_time:
+        start_time = 0
+    if not end_time:
+        end_time = int(time.time())
+
     sql = """
-        SELECT strftime('%H:%M', create_time, 'unixepoch', 'localtime') AS ctime, mem_pect, 8.00, swp_pect, 16.00
-        FROM psutil_monitor
-    """
-    result = query_sqlite(sql, ())
+            SELECT tmp.ctime, ROUND(SUM(tmp.mem_pect) / COUNT(1), 2), ROUND(SUM(tmp.swp_pect) / COUNT(1), 2)
+            FROM (
+                SELECT strftime('%H:%M', create_time, 'unixepoch', 'localtime') AS ctime, mem_pect, swp_pect
+                FROM psutil_monitor
+                WHERE create_time >= ? AND create_time <= ?
+            ) AS tmp
+            GROUP BY tmp.ctime;
+        """
+    result = query_sqlite(sql, (start_time, end_time))
     mem_percent_dict = {}
+    swp_percent_dict = {}
     if result:
         for row in result:
             create_time = row[0]
             mem_pect = row[1]
-            mem_total = row[2]
-            mem_aviable = round(mem_total * mem_pect, 2)
-            mem_free = mem_total - mem_aviable
-            swp_pect = row[3]
-            swp_total = row[4]
-            swp_aviable = round(swp_total * swp_pect, 2)
-            swp_fee = swp_total - swp_aviable
-            mem_percent_dict[create_time] = (mem_pect, swp_pect)
-    return mem_percent_dict
-    # memory = psutil.virtual_memory()
-    # swap = psutil.swap_memory()
-    # return memory.total, memory.total - memory.free, memory.free, swap.total, swap.used, swap.free, memory.percent
+            swp_pect = row[2]
+            mem_percent_dict[create_time] = mem_pect
+            swp_percent_dict[create_time] = swp_pect
+    return mem_percent_dict, swp_percent_dict
 
 
-def memory_liquid() -> Gauge:
-    mtotal, mused, mfree, stotal, sused, sfree, mpercent = memory()
-    c = (
-        Gauge()
-            .add("", [("", mpercent)])
-            .set_global_opts(title_opts=opts.TitleOpts(title="内存负载", pos_left="center"))
+def memory_line() -> Line:
+    now = time.strftime('%Y{y}%m{m}%d{d}').format(y='年', m='月', d='日')
+    mem = memory()
+    mem_percent_dict = mem[0]
+    swp_percent_dict = mem[1]
+    memory_percent_line = (
+        Line()
+            .add_xaxis(list(mem_percent_dict.keys()))
+            .add_yaxis('内存占用率', list(mem_percent_dict.values()),
+                       areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
+                       label_opts=opts.LabelOpts(is_show=False),
+                       is_smooth=True
+                       )
+            .add_yaxis('交换区暂用率', list(swp_percent_dict.values()),
+                       areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
+                       label_opts=opts.LabelOpts(is_show=False),
+                       is_smooth=True
+                       )
+            .set_global_opts(
+            tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type="cross"),
+            title_opts=opts.TitleOpts(title=now + "内存使用率", pos_left="center"),
+            yaxis_opts=opts.AxisOpts(min_=0, max_=100, split_number=10, type_="value", name='%'),
+            legend_opts=opts.LegendOpts(pos_left="left")
+        )
     )
-    return mtotal, mused, mfree, stotal, sused, sfree, c
+    return 0, 0, 0, 0, 0, 0, memory_percent_line
 
 
-def net_io():
-    now = time.strftime('%H:%M:%S', time.localtime(time.time()))
-    # 获取网络信息
-    count = psutil.net_io_counters()
-    g_sent = count.bytes_sent
-    g_recv = count.bytes_recv
+def load(start_time=None, end_time=None):
+    if not start_time:
+        start_time = 0
+    if not end_time:
+        end_time = int(time.time())
 
-    # 第一次请求
-    if net_io_dict['len'] == -1:
-        net_io_dict['pre_sent'] = g_sent
-        net_io_dict['pre_recv'] = g_recv
-        net_io_dict['len'] = 0
-        return
+    sql = """
+            SELECT tmp.ctime, 
+                ROUND(SUM(tmp.load_1m) / COUNT(1), 2), 
+                ROUND(SUM(tmp.load_5m) / COUNT(1), 2), 
+                ROUND(SUM(tmp.load_15m) / COUNT(1), 2)
+            FROM (
+                SELECT strftime('%H:%M', create_time, 'unixepoch', 'localtime') AS ctime, load_1m, load_5m, load_15m
+                FROM psutil_monitor
+                WHERE create_time >= ? AND create_time <= ?
+            ) AS tmp
+            GROUP BY tmp.ctime;
+        """
 
-    # 当前网络发送/接收的字节速率 = 现在网络发送/接收的总字节 - 前一次请求网络发送/接收的总字节
-    net_io_dict['net_io_sent'].append(g_sent - net_io_dict['pre_sent'])
-    net_io_dict['net_io_recv'].append(g_recv - net_io_dict['pre_recv'])
-    net_io_dict['net_io_time'].append(now)
-    net_io_dict['len'] = net_io_dict['len'] + 1
+    result = query_sqlite(sql, (start_time, end_time))
+    load_1m_dict = {}
+    load_5m_dict = {}
+    load_15m_dict = {}
+    if result:
+        for row in result:
+            create_time = row[0]
+            load_1m = row[1]
+            load_5m = row[2]
+            load_15m = row[3]
+            load_1m_dict[create_time] = load_1m
+            load_5m_dict[create_time] = load_5m
+            load_15m_dict[create_time] = load_15m
+    return load_1m_dict, load_5m_dict, load_15m_dict
 
-    net_io_dict['pre_sent'] = g_sent
-    net_io_dict['pre_recv'] = g_recv
 
-    # 保持在图表中 10 个数据
-    if net_io_dict['len'] == 11:
-        net_io_dict['net_io_sent'].pop(0)
-        net_io_dict['net_io_recv'].pop(0)
-        net_io_dict['net_io_time'].pop(0)
-        net_io_dict['len'] = net_io_dict['len'] - 1
+def load_line() -> Line:
+    now = time.strftime('%Y{y}%m{m}%d{d}').format(y='年', m='月', d='日')
+    lod = load()
+    load_1m_dict = lod[0]
+    load_5m_dict = lod[1]
+    load_15m_dict = lod[2]
+    load_line = (
+        Line()
+            .add_xaxis(list(load_1m_dict.keys()))
+            .add_yaxis('最近1分钟负载', list(load_1m_dict.values()),
+                       areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
+                       label_opts=opts.LabelOpts(is_show=False),
+                       is_smooth=True
+                       )
+            .add_yaxis('最近5分钟负载', list(load_5m_dict.values()),
+                       areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
+                       label_opts=opts.LabelOpts(is_show=False),
+                       is_smooth=True
+                       )
+            .add_yaxis('最近15分钟负载', list(load_15m_dict.values()),
+                       areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
+                       label_opts=opts.LabelOpts(is_show=False),
+                       is_smooth=True
+                       )
+            .set_global_opts(
+            tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type="cross"),
+            title_opts=opts.TitleOpts(title=now + "负载", pos_left="center"),
+            yaxis_opts=opts.AxisOpts(min_=0.0, max_=5.0, split_number=10, type_="value", name=''),
+            legend_opts=opts.LegendOpts(pos_left="left")
+        )
+    )
+    return load_line
+
+
+def disk_io(start_time=None, end_time=None):
+    if not start_time:
+        start_time = 0
+    if not end_time:
+        end_time = int(time.time())
+
+    sql = """
+            SELECT tmp.ctime, 
+                ROUND(SUM(tmp.disk_read_count) / COUNT(1), 2), 
+                ROUND(SUM(tmp.disk_writ_count) / COUNT(1), 2), 
+                ROUND(SUM(tmp.disk_read_byte) / COUNT(1), 2),
+                ROUND(SUM(tmp.disk_writ_byte) / COUNT(1), 2)
+            FROM (
+                SELECT strftime('%H:%M', create_time, 'unixepoch', 'localtime') AS ctime, 
+                    disk_read_count, disk_writ_count, disk_read_byte, disk_writ_byte
+                FROM psutil_monitor
+                WHERE create_time >= ? AND create_time <= ?
+            ) AS tmp
+            GROUP BY tmp.ctime;
+        """
+    result = query_sqlite(sql, (start_time, end_time))
+    disk_read_count_dict = {}
+    disk_writ_count_dict = {}
+    disk_read_byte_dict = {}
+    disk_writ_byte_dict = {}
+    if result:
+        for i in range(len(result)):
+            if i == 0:
+                row = result[0]
+                create_time = row[0]
+                disk_read_count_dict[create_time] = 0
+                disk_writ_count_dict[create_time] = 0
+                disk_read_byte_dict[create_time] = 0
+                disk_writ_byte_dict[create_time] = 0
+            else:
+                pre_row = result[i - 1]
+                pre_disk_read_count = pre_row[1]
+                pre_disk_writ_count = pre_row[2]
+                pre_disk_read_byte = pre_row[3]
+                pre_disk_writ_byte = pre_row[4]
+
+                row = result[i]
+                create_time = row[0]
+                disk_read_count = row[1]
+                disk_writ_count = row[2]
+                disk_read_byte = row[3]
+                disk_writ_byte = row[4]
+
+                disk_read_count_dict[create_time] = disk_read_count - pre_disk_read_count
+                disk_writ_count_dict[create_time] = disk_writ_count - pre_disk_writ_count
+                disk_read_byte_dict[create_time] = disk_read_byte - pre_disk_read_byte
+                disk_writ_byte_dict[create_time] = disk_writ_byte - pre_disk_writ_byte
+    return disk_read_count_dict, disk_writ_count_dict, disk_read_byte_dict, disk_writ_byte_dict
+
+
+def disk_io_line() -> Line:
+    disk_read_count_dict, disk_writ_count_dict, disk_read_byte_dict, disk_writ_byte_dict = disk_io()
+    c = (
+        Line(init_opts=opts.InitOpts(width="1680px", height="1000px"))
+            .add_xaxis(list(disk_read_count_dict.keys()))
+            .add_yaxis(
+            series_name="读取次数",
+            yaxis_index=0,
+            y_axis=list(disk_read_count_dict.values()),
+            areastyle_opts=opts.AreaStyleOpts(opacity=0.5, color='RED'),
+            linestyle_opts=opts.LineStyleOpts(color='RED'),
+            label_opts=opts.LabelOpts(is_show=False),
+            is_smooth=True
+        )
+            .add_yaxis(
+            series_name="写入次数",
+            y_axis=list(disk_writ_count_dict.values()),
+            yaxis_index=0,
+            areastyle_opts=opts.AreaStyleOpts(opacity=0.5, color='BLUE'),
+            linestyle_opts=opts.LineStyleOpts(color='BLUE'),
+            label_opts=opts.LabelOpts(is_show=False),
+            is_smooth=True
+        )
+            .add_yaxis(
+            series_name="读取字节数",
+            yaxis_index=1,
+            y_axis=list(disk_read_byte_dict.values()),
+            areastyle_opts=opts.AreaStyleOpts(opacity=0.5, color='GREEN'),
+            linestyle_opts=opts.LineStyleOpts(color='GREEN'),
+            label_opts=opts.LabelOpts(is_show=False),
+            is_smooth=True
+        )
+            .add_yaxis(
+            series_name="写入字节数",
+            y_axis=list(disk_writ_byte_dict.values()),
+            yaxis_index=1,
+            areastyle_opts=opts.AreaStyleOpts(opacity=0.5, color='#FF00FF'),
+            linestyle_opts=opts.LineStyleOpts(color='#FF00FF'),
+            label_opts=opts.LabelOpts(is_show=False),
+            is_smooth=True
+        )
+            .extend_axis(
+            yaxis=opts.AxisOpts(
+                name_location="start",
+                type_="value",
+                is_inverse=True,
+                axistick_opts=opts.AxisTickOpts(is_show=True),
+                splitline_opts=opts.SplitLineOpts(is_show=True),
+                name='KB/分'
+            )
+        )
+            .set_global_opts(
+            title_opts=opts.TitleOpts(
+                title="磁盘IO",
+                pos_left="center",
+                pos_top="top",
+            ),
+            tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type="cross"),
+            legend_opts=opts.LegendOpts(pos_left="left"),
+            xaxis_opts=opts.AxisOpts(type_="category", boundary_gap=False),
+            yaxis_opts=opts.AxisOpts(type_="value", name='次/分'),
+        )
+            .set_series_opts(
+            axisline_opts=opts.AxisLineOpts(),
+        )
+    )
+    return 200, 121, 78, c
+
+
+def net_io(start_time=None, end_time=None):
+    if not start_time:
+        start_time = 0
+    if not end_time:
+        end_time = int(time.time())
+    sql = """
+            SELECT tmp.ctime, 
+                ROUND(SUM(tmp.net_sent) / COUNT(1), 2),
+                ROUND(SUM(tmp.net_recv) / COUNT(1), 2)
+            FROM (
+                SELECT strftime('%H:%M', create_time, 'unixepoch', 'localtime') AS ctime, net_sent, net_recv
+                FROM psutil_monitor
+                WHERE create_time >= ? AND create_time <= ?
+            ) AS tmp
+            GROUP BY tmp.ctime;
+        """
+    result = query_sqlite(sql, (start_time, end_time))
+    net_sent_byte_dict = {}
+    net_recv_byte_dict = {}
+    if result:
+        for i in range(len(result)):
+            if i == 0:
+                row = result[0]
+                create_time = row[0]
+                net_sent_byte_dict[create_time] = 0
+                net_recv_byte_dict[create_time] = 0
+            else:
+                pre_row = result[i - 1]
+                pre_net_sent_byte = pre_row[1]
+                pre_net_recv_byte = pre_row[2]
+
+                row = result[i]
+                create_time = row[0]
+                net_sent_byte = row[1]
+                net_recv_byte = row[2]
+
+                net_sent_byte_dict[create_time] = (net_sent_byte - pre_net_sent_byte) // 1024
+                net_recv_byte_dict[create_time] = (net_recv_byte - pre_net_recv_byte) // 1024
+    return net_sent_byte_dict, net_recv_byte_dict
 
 
 def net_io_line() -> Line:
-    net_io()
-
+    net_sent_byte_dict, net_recv_byte_dict = net_io()
     c = (
         Line()
-            .add_xaxis(net_io_dict['net_io_time'])
-            .add_yaxis("发送字节数", net_io_dict['net_io_sent'], is_smooth=True)
-            .add_yaxis("接收字节数", net_io_dict['net_io_recv'], is_smooth=True)
-            .set_series_opts(
-            areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
+            .add_xaxis(list(net_sent_byte_dict.keys()))
+            .add_yaxis(
+            series_name="发送字节数",
+            y_axis=list(net_sent_byte_dict.values()),
+            yaxis_index=0,
+            areastyle_opts=opts.AreaStyleOpts(opacity=0.5, color='BLUE'),
+            linestyle_opts=opts.LineStyleOpts(color='BLUE'),
             label_opts=opts.LabelOpts(is_show=False),
+            is_smooth=True
+        )
+            .add_yaxis(
+            series_name="接受字节数",
+            y_axis=list(net_recv_byte_dict.values()),
+            yaxis_index=1,
+            areastyle_opts=opts.AreaStyleOpts(opacity=0.5, color='RED'),
+            linestyle_opts=opts.LineStyleOpts(color='RED'),
+            label_opts=opts.LabelOpts(is_show=False),
+            is_smooth=True
+        )
+            .extend_axis(
+            yaxis=opts.AxisOpts(
+                name_location="start",
+                type_="value",
+                is_inverse=True,
+                axistick_opts=opts.AxisTickOpts(is_show=True),
+                splitline_opts=opts.SplitLineOpts(is_show=True),
+                name='KB/分'
+            )
         )
             .set_global_opts(
+            tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type="cross"),
             title_opts=opts.TitleOpts(title="网卡IO", pos_left="center"),
             xaxis_opts=opts.AxisOpts(
                 axistick_opts=opts.AxisTickOpts(is_align_with_label=True),
                 is_scale=False,
                 boundary_gap=False,
             ),
-            yaxis_opts=opts.AxisOpts(type_="value", name='B/2S'),
-            legend_opts=opts.LegendOpts(pos_left="left"),
-        ))
+            yaxis_opts=opts.AxisOpts(type_="value", name='KB/分'),
+            legend_opts=opts.LegendOpts(pos_left="left")
+        )
+            .set_series_opts(
+            areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
+            label_opts=opts.LabelOpts(is_show=False),
+        )
+    )
     return c
 
 
@@ -166,121 +431,22 @@ def process():
     for k, i in enumerate(pid):
         try:
             proc = psutil.Process(i)
-            ctime = time.strftime("%Y-%m-%d %H:%M:%S",
-                                  time.localtime(proc.create_time()))
-            process_list.append(
-                (str(i), proc.name(), proc.cpu_percent(), proc.memory_percent(), ctime))
+            ctime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(proc.create_time()))
+            process_list.append((str(i), proc.name(), proc.cpu_percent(), proc.memory_percent(), ctime, proc.status()))
         except psutil.AccessDenied:
             pass
         except psutil.NoSuchProcess:
             pass
         except SystemError:
             pass
-
         process_list.sort(key=process_sort, reverse=True)
     for i in process_list:
-        result.append({'PID': i[0], 'name': i[1], 'cpu': i[2],
-                       'mem': "%.2f%%" % i[3], 'ctime': i[4]})
-
-    return jsonify({'list': result})
+        result.append({'PID': i[0], 'name': i[1], 'cpu': i[2], 'mem': "%.2f%%" % i[3], 'ctime': i[4], 'status': i[5].upper()})
+    return jsonify({'list': result[0:10]})
 
 
 def process_sort(elem):
     return elem[3]
-
-
-def disk():
-    disk_usage = psutil.disk_usage('/')
-    disk_used = 0
-    # 磁盘已使用大小 = 每个分区的总和
-    partitions = psutil.disk_partitions()
-    for partition in partitions:
-        partition_disk_usage = psutil.disk_usage(partition[1])
-        disk_used = partition_disk_usage.used + disk_used
-
-    now = time.strftime('%H:%M:%S', time.localtime(time.time()))
-    count = psutil.disk_io_counters()
-    read_bytes = count.read_bytes
-    write_bytes = count.write_bytes
-
-    # 第一次请求
-    if disk_dict['len'] == -1:
-        disk_dict['pre_write_bytes'] = write_bytes
-        disk_dict['pre_read_bytes'] = read_bytes
-        disk_dict['len'] = 0
-        return disk_usage.total, disk_used, disk_usage.free
-
-    # 当前速率=现在写入/读取的总字节-前一次请求写入/读取的总字节
-    disk_dict['write_bytes'].append(
-        (write_bytes - disk_dict['pre_write_bytes']) / 1024)
-    disk_dict['read_bytes'].append(
-        (read_bytes - disk_dict['pre_read_bytes']) / 1024)
-    disk_dict['disk_time'].append(now)
-    disk_dict['len'] = disk_dict['len'] + 1
-
-    # 把现在写入/读取的总字节放入前一个请求的变量中
-    disk_dict['pre_write_bytes'] = write_bytes
-    disk_dict['pre_read_bytes'] = read_bytes
-
-    # 保持在图表中 50 个数据
-    if disk_dict['len'] == 51:
-        disk_dict['write_bytes'].pop(0)
-        disk_dict['read_bytes'].pop(0)
-        disk_dict['disk_time'].pop(0)
-        disk_dict['len'] = disk_dict['len'] - 1
-
-    return disk_usage.total, disk_used, disk_usage.free
-
-
-def disk_line() -> Line:
-    total, used, free = disk()
-
-    c = (
-        Line(init_opts=opts.InitOpts(width="1680px", height="800px"))
-            .add_xaxis(xaxis_data=disk_dict['disk_time'])
-            .add_yaxis(
-            series_name="写入数据",
-            y_axis=disk_dict['write_bytes'],
-            areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
-            linestyle_opts=opts.LineStyleOpts(),
-            label_opts=opts.LabelOpts(is_show=False),
-        )
-            .add_yaxis(
-            series_name="读取数据",
-            y_axis=disk_dict['read_bytes'],
-            yaxis_index=1,
-            areastyle_opts=opts.AreaStyleOpts(opacity=0.5),
-            linestyle_opts=opts.LineStyleOpts(),
-            label_opts=opts.LabelOpts(is_show=False),
-        )
-            .extend_axis(
-            yaxis=opts.AxisOpts(
-                name_location="start",
-                type_="value",
-                is_inverse=True,
-                axistick_opts=opts.AxisTickOpts(is_show=True),
-                splitline_opts=opts.SplitLineOpts(is_show=True),
-                name='KB/2S'
-            )
-        )
-            .set_global_opts(
-            title_opts=opts.TitleOpts(
-                title="磁盘IO",
-                pos_left="center",
-                pos_top="top",
-            ),
-            tooltip_opts=opts.TooltipOpts(
-                trigger="axis", axis_pointer_type="cross"),
-            legend_opts=opts.LegendOpts(pos_left="left"),
-            xaxis_opts=opts.AxisOpts(type_="category", boundary_gap=False),
-            yaxis_opts=opts.AxisOpts(type_="value", name='KB/2S'),
-        )
-            .set_series_opts(
-            axisline_opts=opts.AxisLineOpts(),
-        )
-    )
-
-    return total, used, free, c
 
 
 @app.route("/")
@@ -294,11 +460,23 @@ def get_cpu_chart():
     return jsonify({'cpu_percent_line': cpu.dump_options_with_quotes()})
 
 
+@app.route("/load")
+def get_load_chart():
+    load = load_line()
+    return jsonify({'load_line': load.dump_options_with_quotes()})
+
+
 @app.route("/memory")
 def get_memory_chart():
-    mtotal, mused, mfree, stotal, sused, sfree, c = memory_liquid()
+    mtotal, mused, mfree, stotal, sused, sfree, mem = memory_line()
     return jsonify({'mtotal': mtotal, 'mused': mused, 'mfree': mfree, 'stotal': stotal, 'sused': sused, 'sfree': sfree,
-                    'liquid': c.dump_options_with_quotes()})
+                    'mem_percent_line': mem.dump_options_with_quotes()})
+
+
+@app.route("/disk")
+def get_disk_chart():
+    total, used, free, c = disk_io_line()
+    return jsonify({'total': total, 'used': used, 'free': free, 'line': c.dump_options_with_quotes()})
 
 
 @app.route("/netio")
@@ -312,22 +490,16 @@ def get_process_tab():
     c = process()
     return c
 
-
-@app.route("/delprocess")
-def del_process():
-    pid = request.args.get("pid")
-    os.kill(int(pid), signal.SIGKILL)
-    return jsonify({'status': 'OK'})
-
-
-@app.route("/disk")
-def get_disk_chart():
-    total, used, free, c = disk_line()
-    return jsonify({'total': total, 'used': used, 'free': free, 'line': c.dump_options_with_quotes()})
+#
+# @app.route("/delprocess")
+# def del_process():
+#     pid = request.args.get("pid")
+#     os.kill(int(pid), signal.SIGKILL)
+#     return jsonify({'status': 'OK'})
 
 
 if __name__ == "__main__":
-    # cpu()
     app.run(host='127.0.0.1', port=5000)
     app.jinja_env.auto_reload = True
     app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.debug = True

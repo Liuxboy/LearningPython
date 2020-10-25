@@ -30,4 +30,9 @@ def printHello():
 
 
 if __name__ == "__main__":
-    printHello()
+    # printHello()
+    result = [1, 2, 3, 4, 5, 6]
+    for i in range(len(result) - 1, -1, -1):
+        # print("index:", i)
+        row = result[i]
+        print("value:", row)
