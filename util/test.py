@@ -6,6 +6,7 @@
 # Time: 10:17 <br>
 # Desc:
 import datetime
+import os
 import sched
 import time
 
@@ -31,8 +32,10 @@ def printHello():
 
 if __name__ == "__main__":
     # printHello()
-    result = [1, 2, 3, 4, 5, 6]
+    result = [1, 8, 3, 4, 5, 6]
+    print('max:', max(result))
     for i in range(len(result) - 1, -1, -1):
         # print("index:", i)
         row = result[i]
         print("value:", row)
+    print(os.path.split(os.path.realpath(__file__))[0])

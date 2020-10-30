@@ -161,16 +161,18 @@ def load(start_time=None, end_time=None):
     load_1m_dict = {}
     load_5m_dict = {}
     load_15m_dict = {}
+    max_load = 0.0
     if result:
         for row in result:
             create_time = row[0]
             load_1m = row[1]
             load_5m = row[2]
             load_15m = row[3]
+            max_load = max(load_1m, load_5m, load_15m, max_load)
             load_1m_dict[create_time] = load_1m
             load_5m_dict[create_time] = load_5m
             load_15m_dict[create_time] = load_15m
-    return load_1m_dict, load_5m_dict, load_15m_dict
+    return load_1m_dict, load_5m_dict, load_15m_dict, max_load
 
 
 def load_line() -> Line:
@@ -179,6 +181,7 @@ def load_line() -> Line:
     load_1m_dict = lod[0]
     load_5m_dict = lod[1]
     load_15m_dict = lod[2]
+    max_load = lod[3]
     load_line = (
         Line()
             .add_xaxis(list(load_1m_dict.keys()))
@@ -200,7 +203,7 @@ def load_line() -> Line:
             .set_global_opts(
             tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type="cross"),
             title_opts=opts.TitleOpts(title=now + "负载", pos_left="center"),
-            yaxis_opts=opts.AxisOpts(min_=0.0, max_=5.0, split_number=10, type_="value", name=''),
+            yaxis_opts=opts.AxisOpts(min_=0.0, max_=max_load, split_number=10, type_="value", name=''),
             legend_opts=opts.LegendOpts(pos_left="left")
         )
     )
@@ -257,8 +260,8 @@ def disk_io(start_time=None, end_time=None):
 
                 disk_read_count_dict[create_time] = disk_read_count - pre_disk_read_count
                 disk_writ_count_dict[create_time] = disk_writ_count - pre_disk_writ_count
-                disk_read_byte_dict[create_time] = disk_read_byte - pre_disk_read_byte
-                disk_writ_byte_dict[create_time] = disk_writ_byte - pre_disk_writ_byte
+                disk_read_byte_dict[create_time] = (disk_read_byte - pre_disk_read_byte)//1024
+                disk_writ_byte_dict[create_time] = (disk_writ_byte - pre_disk_writ_byte)//1024
     return disk_read_count_dict, disk_writ_count_dict, disk_read_byte_dict, disk_writ_byte_dict
 
 
